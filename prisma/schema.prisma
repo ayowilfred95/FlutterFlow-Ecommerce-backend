@@ -32,8 +32,8 @@ model Vendor {
   address    String
   phoneNumber String
   state       String
-  Country     String
-  isAdmin    String
+  country     String
+  isAdmin    Boolean  @default(false)
   // Define a one-to-many relationship between Vendor and Product
   products   Product[]
 }
@@ -62,3 +62,5 @@ model Customer {
 }
 
 // Define additional relationships or tables for orders and order items as needed
+
+

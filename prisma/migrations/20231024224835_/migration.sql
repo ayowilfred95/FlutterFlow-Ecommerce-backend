@@ -20,7 +20,7 @@ CREATE TABLE "Vendor" (
     "phoneNumber" TEXT NOT NULL,
     "state" TEXT NOT NULL,
     "country" TEXT NOT NULL,
-    "isAdmin" BOOLEAN NOT NULL DEFAULT false,
+    "isVendor" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Vendor_pkey" PRIMARY KEY ("id")
 );
@@ -34,6 +34,7 @@ CREATE TABLE "Product" (
     "price" DOUBLE PRECISION NOT NULL,
     "imageUrl" TEXT,
     "vendorId" INTEGER NOT NULL,
+    "sold" BOOLEAN NOT NULL,
 
     CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
 );

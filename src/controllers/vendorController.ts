@@ -5,9 +5,22 @@ import bcrypt from "bcrypt";
 import validator from "validator";
 import dotenv from "dotenv";
 
+
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
 const prisma = new PrismaClient();
+
+/**
+ * @dev an interface was defined to defined a custom type for user
+ */
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any
+    }
+  }
+}
 
 // register a vendor
 
@@ -40,7 +53,8 @@ export const registerVendor = async (req: Request, res: Response) => {
           address: address,
           phoneNumber: phoneNumber,
           state: state,
-          country: country
+          country: country,
+          isVendor:true,
         },
       });
       res.status(201).json({
@@ -78,6 +92,7 @@ export const loginVendor = async (req: Request, res: Response) => {
         {
           id: vendor.id,
           email: vendor.email,
+          isVendor: true,
         },
         JWT_SECRET,
         { expiresIn: "1d" }
@@ -202,4 +217,56 @@ export const deleteVendorById = async (req: Request, res: Response) => {
       error: error,
     });
   }
+};
+
+
+
+
+
+export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.split(' ')[1];
+
+    if (!token) {
+      console.log('No token provided');
+      return res.status(401).json({ status: 'failed', message: 'unauthorized' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (err) {
+        console.error('Error verifying token:', err);
+        return res.status(401).json({
+          status: 'failed',
+          message: 'Invalid token',
+          error: err,
+        });
+      }
+
+      console.log('Decoded user:', user);
+      req.user = user;
+      next();
+    });
+  } else {
+    console.log('No authorization header provided');
+    res.status(403).json({
+      status: 'failed',
+      message: 'Not an authorized user',
+    });
+  }
+};
+
+
+
+export const authorizedVendor =  (req:Request, res:Response, next:NextFunction) =>  {
+  verifyToken(req, res, () => {
+    if (req.user.isVendor) {
+      next();
+    } else {
+     return res.status(403).json({
+        status: 'failed',
+        message: 'Authorization failed',
+      });
+    }
+  });
 };

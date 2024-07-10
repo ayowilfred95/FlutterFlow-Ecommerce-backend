@@ -1,11 +1,12 @@
 import express from "express";
-import { registerAdmin, loginAdmin, authorizedAdmin, resetPassword } from '../controllers/adminController';
+import { registerAdmin, loginAdmin, authorizedAdmin, resetAdminPassword } from '../controllers';
+
 
 const router = express.Router();
 
 router.route('/register').post(registerAdmin);
 router.route('/login').post(loginAdmin);
-router.route('/password/reset').post(authorizedAdmin,resetPassword);
+router.route('/password/reset').post(authorizedAdmin,resetAdminPassword);
 
 export default router;
 

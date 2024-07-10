@@ -3,7 +3,9 @@ import { Request, Response ,NextFunction} from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import validator from 'validator';
+// import redisClient from '../config/redis';
 import dotenv from "dotenv";
+import { adminDto } from "../dto/create-admin.dto";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -23,9 +25,9 @@ declare global {
     }
   }
 
-export const registerAdmin = async(req:Request, res:Response) => {
+export const registerAdmin = async(req:Request, res:Response, next:NextFunction) => {
     try{
-        const {fullName, email,password} = req.body
+        const {fullName, email,password} = <adminDto>req.body
 
          // Check if the user already exists with the provided email
     const existingUser = await prisma.admin.findUnique({
@@ -90,6 +92,11 @@ export const loginAdmin = async (req: Request, res: Response) => {
         JWT_SECRET,
         { expiresIn: "1d" }
       );
+
+   
+        // // Cache the admin data in Redis (using the admin ID as a string)
+        // await redisClient.set(admin.id.toString(), JSON.stringify(admin));
+
       return res.status(201).json({
         status: "success",
         data: admin,
@@ -111,7 +118,7 @@ export const loginAdmin = async (req: Request, res: Response) => {
 
 
 
-export const resetPassword = async (req: Request, res: Response) => {
+export const resetAdminPassword = async (req: Request, res: Response) => {
   const { email, password } = req.body;
   try {
     const admin = await prisma.admin.findUnique({

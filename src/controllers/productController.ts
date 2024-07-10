@@ -3,13 +3,15 @@ import { Request, Response ,NextFunction} from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import validator from 'validator';
+import { CreateProductDto } from "../dto/create-product.dto";
 
-
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+});
 
 export const createProduct = async(req:Request, res:Response, next:NextFunction)=>{
     try{
-        const {name,description,category,price,imageUrl} = req.body
+        const {name,description,category,price,quantity,rating,reviews} = <CreateProductDto>req.body
         const vendorId = req.user.id;
         if(!vendorId){
             return res.status(400).json({
@@ -17,15 +19,31 @@ export const createProduct = async(req:Request, res:Response, next:NextFunction)
                 message:"Please provide a token"
             })
         }
+
+        
+
+
+       // req.files is correctly populated by Multer
+      const files = req.files as Express.Multer.File[];
+      const images = files.map((file) => file.filename);
+        console.log("image gotten successfully")
+
         const product = await prisma.product.create({
             data: {
                 name: name,
                 description: description,
                 category: category,
-                price: price,
-                imageUrl: imageUrl,
+                price: parseFloat(price as unknown as string), 
+                quantity: parseInt(quantity as unknown as string),
+                rating: parseInt(rating as unknown as string),
+                reviews: reviews,
+                image: images,
                 sold: false,
-                vendorId:vendorId,
+                vendor: {
+                  connect:{
+                    id:vendorId
+                  }
+                }
               },
         });
         res.status(200).json({
@@ -47,7 +65,9 @@ export const getAllProductByCategory = async(req:Request,res:Response)=>{
 
     const products = await prisma.product.findMany({
         where:{
-            category: category,
+            category:{
+              has:category,
+            },
             sold:false
         },
     });

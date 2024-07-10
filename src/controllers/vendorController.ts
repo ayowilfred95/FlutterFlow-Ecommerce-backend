@@ -2,8 +2,11 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import validator from "validator";
-import dotenv from "dotenv";
+import { verifyToken } from "./adminController";
+import { vendorDto } from "../dto/create-vendor.dto";
+import { updateVendorDto } from "../dto/update-vendor.dto";
+import isEmail from "validator/lib/isEmail";
+// import redisClient from "../config/redis";
 
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -35,7 +38,13 @@ export const registerVendor = async (req: Request, res: Response) => {
       phoneNumber,
       state,
       country,
-    } = req.body;
+    } = <vendorDto>req.body;
+    if(!isEmail(email)){
+      return res.status(400).json({
+        status:"failed",
+        message:"Please Enter a valid email"
+      })
+    }
     const existingUser = await prisma.vendor.findUnique({
       where: { email },
     });
@@ -59,8 +68,18 @@ export const registerVendor = async (req: Request, res: Response) => {
       });
       res.status(201).json({
         message: "Vendor created successfully",
-        data: vendor,
-      });
+        data: {
+            id:vendor.id,
+            email:vendor.email,
+            firstName:vendor.firstName,
+            lastName:vendor.lastName,
+            address:vendor.address,
+            phoneNumber:vendor.phoneNumber,
+            state:vendor.state,
+            country:vendor.country,
+            isVendor:vendor.isVendor,
+          }
+        })
     }
   } catch (error) {
     res.status(400).json({
@@ -80,10 +99,11 @@ export const loginVendor = async (req: Request, res: Response) => {
         email: email,
       },
     });
-    if (!vendor) {
+
+    if (!vendor?.email && !vendor?.password) {
       return res.status(400).json({
         status: "Failed",
-        message: "Vendor not found",
+        message: "Incorrect Email or password",
       });
     }
     const decryptedPassword = await bcrypt.compare(password, vendor.password);
@@ -99,7 +119,17 @@ export const loginVendor = async (req: Request, res: Response) => {
       );
       return res.status(201).json({
         status: "success",
-        data: vendor,
+        data:{
+          id:vendor.id,
+          email:vendor.email,
+          firstName:vendor.firstName,
+          lastName:vendor.lastName,
+          address:vendor.address,
+          phoneNumber:vendor.phoneNumber,
+          state:vendor.state,
+          country:vendor.country,
+          isVendor:vendor.isVendor,
+        },
         token: accessToken,
       });
     } else {
@@ -116,7 +146,103 @@ export const loginVendor = async (req: Request, res: Response) => {
   }
 };
 
-export const resetPassword = async (req: Request, res: Response) => {
+
+// get all vendors
+export const getAllVendors = async(req:Request, res:Response, next:NextFunction) => {
+  try {
+
+    // const cachedVendors = await redisClient.get('vendors');
+    // console.log('Cached vendors:', cachedVendors);
+
+    // if (cachedVendors) {
+    //     return res.status(200).json({
+    //         status: 'success',
+    //         data: JSON.parse(cachedVendors)
+    //     });
+    // }
+
+    const vendors = await prisma.vendor.findMany();
+
+    if(!vendors){
+      return res.status(404).json({
+        status:"failed",
+        message:"No vendors found"
+      })
+    }
+
+
+
+    //  // Cache the vendor data in Redis (using the vendor ID as a string)
+    //  await redisClient.set("vendors", JSON.stringify(vendors));
+
+    res.status(200).json({
+      status:"success",
+      data:vendors.map((vendor) => {
+        return {
+          id:vendor.id,
+          email:vendor.email,
+          firstName:vendor.firstName,
+          lastName:vendor.lastName,
+          address:vendor.address,
+          phoneNumber:vendor.phoneNumber,
+          state:vendor.state,
+          country:vendor.country,
+        }
+      })
+    })
+  } catch (error) {
+    res.status(500).json({
+      status:"Internal server error",
+      error:error
+    })
+  }
+}
+
+// get vendor by id
+export const getVendorById = async(req:Request, res:Response, next:NextFunction) => {
+  try {
+    const vendor = await prisma.vendor.findUnique({
+      where:{
+        id:parseInt(req.params.id)
+      }
+    })
+
+    if(!vendor){
+      return res.status(404).json({
+        status:"failed",
+        message:"Vendor not found"
+      })
+    }
+
+    // // Cache the vendor data in Redis (using the vendor ID as a string)
+    // await redisClient.set(vendor.id.toString(), JSON.stringify(vendor));
+
+    res.status(200).json({
+      status:"success",
+      data:{
+        id:vendor.id,
+          email:vendor.email,
+          firstName:vendor.firstName,
+          lastName:vendor.lastName,
+          address:vendor.address,
+          phoneNumber:vendor.phoneNumber,
+          state:vendor.state,
+          country:vendor.country,
+        }
+      })
+    } catch (error) {
+      res.status(500).json({
+      status:"Internal server error",
+      error:error
+    })
+  }
+}
+
+
+
+
+
+export const resetVendorPassword = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     const vendor = await prisma.vendor.findUnique({
@@ -159,7 +285,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 
 // find Vendor by product
 
-export const vendorByProduct = async (req: Request, res: Response) => {
+export const vendorByProduct = async (req: Request, res: Response, next:NextFunction) => {
   try {
     const vendorId = parseInt(req.params.id, 10);
     const vendor = await prisma.vendor.findUnique({
@@ -188,6 +314,7 @@ export const vendorByProduct = async (req: Request, res: Response) => {
   }
 };
 
+// delete vendor by id
 export const deleteVendorById = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -219,44 +346,47 @@ export const deleteVendorById = async (req: Request, res: Response) => {
   }
 };
 
-
-
-
-
-export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader) {
-    const token = authHeader.split(' ')[1];
-
-    if (!token) {
-      console.log('No token provided');
-      return res.status(401).json({ status: 'failed', message: 'unauthorized' });
-    }
-
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-      if (err) {
-        console.error('Error verifying token:', err);
-        return res.status(401).json({
-          status: 'failed',
-          message: 'Invalid token',
-          error: err,
-        });
+// update vendor by id
+export const updateVendorById= async(req:Request, res:Response, next:NextFunction) => {
+  try {
+    const vendor = await prisma.vendor.findUnique({
+      where:{
+        id:parseInt(req.params.id)
       }
-
-      console.log('Decoded user:', user);
-      req.user = user;
-      next();
-    });
-  } else {
-    console.log('No authorization header provided');
-    res.status(403).json({
-      status: 'failed',
-      message: 'Not an authorized user',
-    });
+    })
+    if(!vendor){
+      return res.status(404).json({
+        status:"failed",
+        message:"Vendor not found"
+      })
+    }
+    const {firstName,lastName,address,phoneNumber,state,country} = <updateVendorDto>req.body
+    const updatedVendor = await prisma.vendor.update({
+      where:{
+        id:parseInt(req.params.id)
+      },
+      data:{
+        firstName:firstName,
+        lastName:lastName,
+        address:address,
+        phoneNumber:phoneNumber,
+        state:state,
+        country:country
+      }
+    })
+    res.status(200).json({
+      status:"success",
+      data:updatedVendor
+    })
+  } catch (error) {
+    res.status(500).json({
+      status:"Internal server error",
+      error:error
+    })
   }
-};
+}
 
-
+// authorise vendor
 
 export const authorizedVendor =  (req:Request, res:Response, next:NextFunction) =>  {
   verifyToken(req, res, () => {

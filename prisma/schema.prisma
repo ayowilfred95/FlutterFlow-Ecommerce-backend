@@ -33,9 +33,12 @@ model Vendor {
   phoneNumber String
   state       String
   country     String
+  coverImages String[]
   isVendor    Boolean  @default(false)
   // Define a one-to-many relationship between Vendor and Product
-  products   Product[]
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // Products table
@@ -43,13 +46,19 @@ model Product {
   id          Int      @id @default(autoincrement())
   name        String
   description String
-  category    String
+  category    String[]
   price       Float
-  imageUrl    String?
+  image       String[]
+  quantity    Int
+  rating      Float
+  reviews     String[]
   // Define a many-to-one relationship between Product and Vendor
   vendor      Vendor   @relation(fields: [vendorId], references: [id])
   vendorId    Int
-  sold      Boolean
+  sold       Boolean  @default(false)
+  payment     Payment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // Customers table
@@ -60,8 +69,22 @@ model Customer {
   password   String
   phoneNumber String
   address    String
+  payment     Payment[]
 }
 
 // Define additional relationships or tables for orders and order items as needed
 
 
+// Payment
+
+model Payment {
+  id          Int      @id @default(autoincrement())
+  amount      Float
+  status      String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  customerId  Int
+  product     Product @relation(fields: [productId], references: [id])
+  productId   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
